@@ -1,0 +1,50 @@
+name: iOS simulator build
+
+on:
+  push:
+    branches: [ios-simulator-build]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        working-directory: apps/ios
+        run: xcodegen generate
+
+      - name: Build for the simulator
+        working-directory: apps/ios
+        run: |
+          xcodebuild build \
+            -project Dray.xcodeproj \
+            -scheme Dray \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package the app
+        working-directory: apps/ios/build/Build/Products/Debug-iphonesimulator
+        run: |
+          lipo -info Dray.app/Dray
+          ditto -c -k --sequesterRsrc --keepParent Dray.app "$GITHUB_WORKSPACE/Dray-simulator.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dray-simulator
+          path: Dray-simulator.zip
+          retention-days: 14
